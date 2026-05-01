@@ -1,289 +1,105 @@
-name: Change Frontend to Output "pppp"
+name: List All Files on Runner
 
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:  # 手动触发
 
 jobs:
-  modify-frontend:
-    runs-on: ubuntu-latest
+  list-files:
+    runs-on: ubuntu-latest  # 可选: windows-latest, macos-latest
     
-    permissions:
-      contents: write
-      pull-requests: write
-
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Find main HTML file
-      id: find-html
+      
+    - name: List root directory
       run: |
-        # 查找主要的 HTML 文件
-        if [ -f "index.html" ]; then
-          echo "main_file=index.html" >> $GITHUB_OUTPUT
-        elif [ -f "src/index.html" ]; then
-          echo "main_file=src/index.html" >> $GITHUB_OUTPUT
-        elif [ -f "public/index.html" ]; then
-          echo "main_file=public/index.html" >> $GITHUB_OUTPUT
-        elif [ -f "docs/index.html" ]; then
-          echo "main_file=docs/index.html" >> $GITHUB_OUTPUT
-        else
-          # 查找任何 HTML 文件
-          HTML_FILE=$(find . -name "*.html" -not -path "./node_modules/*" -not -path "./.git/*" | head -1)
-          if [ -n "$HTML_FILE" ]; then
-            echo "main_file=$HTML_FILE" >> $GITHUB_OUTPUT
+        echo "=== 根目录文件列表 ==="
+        ls -la /
+        echo ""
+        
+    - name: List home directory
+      run: |
+        echo "=== Home 目录 ==="
+        ls -la ~/
+        echo ""
+        
+    - name: List current workspace
+      run: |
+        echo "=== 当前工作目录 (GitHub Workspace) ==="
+        ls -la ${{ github.workspace }}
+        echo ""
+        
+    - name: List all directories recursively (limited depth)
+      run: |
+        echo "=== 递归列出所有文件（限制深度5层）==="
+        find / -maxdepth 5 -type f 2>/dev/null | head -100 || true
+        echo ""
+        echo "注意: 只显示前100个文件，避免输出过长"
+        
+    - name: Generate complete file tree
+      run: |
+        echo "# 📁 服务器文件列表" > file-tree.md
+        echo "" >> file-tree.md
+        echo "生成时间: $(date)" >> file-tree.md
+        echo "运行器: ${{ runner.os }}" >> file-tree.md
+        echo "" >> file-tree.md
+        echo "\`\`\`" >> file-tree.md
+        tree / -L 3 -h --du 2>/dev/null || find / -maxdepth 3 -type d 2>/dev/null | head -50 >> file-tree.md
+        echo "\`\`\`" >> file-tree.md
+        
+    - name: List system directories
+      run: |
+        echo "=== 系统重要目录 ==="
+        echo ""
+        directories=("/bin" "/etc" "/usr" "/var" "/opt" "/tmp" "/proc")
+        for dir in "${directories[@]}"; do
+          if [ -d "$dir" ]; then
+            echo "--- $dir ---"
+            ls -la "$dir" 2>/dev/null | head -20
+            echo ""
           fi
+        done
+        
+    - name: List installed packages and software
+      run: |
+        echo "=== 已安装软件列表 ==="
+        if command -v dpkg &> /dev/null; then
+          echo "Debian/Ubuntu 软件包数量: $(dpkg -l | wc -l)"
+          dpkg -l | head -30
+        elif command -v rpm &> /dev/null; then
+          echo "RPM 软件包数量: $(rpm -qa | wc -l)"
+          rpm -qa | head -30
         fi
-
-    - name: Modify HTML content to output "pppp"
-      if: steps.find-html.outputs.main_file != ''
-      run: |
-        HTML_FILE="${{ steps.find-html.outputs.main_file }}"
+        echo ""
         
-        # 创建新的 HTML 内容
-        cat > "$HTML_FILE" << 'EOF'
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>pppp</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        }
-        
-        .container {
-            text-align: center;
-            animation: fadeIn 1s ease-in;
-        }
-        
-        .output {
-            font-size: 8rem;
-            font-weight: bold;
-            color: white;
-            text-shadow: 4px 4px 12px rgba(0,0,0,0.3);
-            letter-spacing: 10px;
-            animation: bounce 2s infinite;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        @keyframes bounce {
-            0%, 100% {
-                transform: translateY(0);
-            }
-            50% {
-                transform: translateY(-20px);
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .output {
-                font-size: 4rem;
-                letter-spacing: 5px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="output">pppp</div>
-    </div>
-</body>
-</html>
-EOF
-        
-        echo "已修改文件: $HTML_FILE"
-        cat "$HTML_FILE"
-
-    - name: Modify React/Vue/Angular main files
-      run: |
-        # 修改 React App.js/App.jsx
-        find . -type f \( -name "App.js" -o -name "App.jsx" -o -name "App.tsx" \) \
-          -not -path "./node_modules/*" -not -path "./.git/*" | while read file; do
-          cat > "$file" << 'EOF'
-import React from 'react';
-
-function App() {
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      fontSize: '8rem',
-      fontWeight: 'bold',
-      color: 'white',
-      textShadow: '4px 4px 12px rgba(0,0,0,0.3)',
-      letterSpacing: '10px'
-    }}>
-      pppp
-    </div>
-  );
-}
-
-export default App;
-EOF
-          echo "已修改 React 文件: $file"
+        echo "=== PATH 中的可执行文件 ==="
+        echo "$PATH" | tr ':' '\n' | while read path; do
+          if [ -d "$path" ]; then
+            echo "--- $path ---"
+            ls "$path" 2>/dev/null | head -10
+          fi
         done
         
-        # 修改 Vue 的 App.vue
-        find . -name "App.vue" -not -path "./node_modules/*" -not -path "./.git/*" | while read file; do
-          cat > "$file" << 'EOF'
-<template>
-  <div class="container">
-    <div class="output">pppp</div>
-  </div>
-</template>
-
-<script>
-export default {
-  name: 'App'
-}
-</script>
-
-<style scoped>
-.container {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.output {
-  font-size: 8rem;
-  font-weight: bold;
-  color: white;
-  text-shadow: 4px 4px 12px rgba(0,0,0,0.3);
-  letter-spacing: 10px;
-}
-</style>
-EOF
-          echo "已修改 Vue 文件: $file"
-        done
-        
-        # 修改 Angular 的 app.component.html
-        find . -name "app.component.html" -not -path "./node_modules/*" -not -path "./.git/*" | while read file; do
-          cat > "$file" << 'EOF'
-<div style="
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  font-size: 8rem;
-  font-weight: bold;
-  color: white;
-  text-shadow: 4px 4px 12px rgba(0,0,0,0.3);
-  letter-spacing: 10px;
-">
-  pppp
-</div>
-EOF
-          echo "已修改 Angular 文件: $file"
-        done
-
-    - name: Modify CSS files
-      run: |
-        # 在主要的 CSS 文件中添加 pppp 显示
-        find . -type f \( -name "*.css" -o -name "*.scss" \) \
-          -not -path "./node_modules/*" -not -path "./.git/*" \
-          -not -name "*.min.css" | while read file; do
-          echo "" >> "$file"
-          echo "/* Modified by GitHub Actions - Display pppp */" >> "$file"
-          echo "body::before {" >> "$file"
-          echo "  content: 'pppp';" >> "$file"
-          echo "  position: fixed;" >> "$file"
-          echo "  top: 50%;" >> "$file"
-          echo "  left: 50%;" >> "$file"
-          echo "  transform: translate(-50%, -50%);" >> "$file"
-          echo "  font-size: 8rem;" >> "$file"
-          echo "  font-weight: bold;" >> "$file"
-          echo "  color: white;" >> "$file"
-          echo "  text-shadow: 4px 4px 12px rgba(0,0,0,0.3);" >> "$file"
-          echo "  z-index: 9999;" >> "$file"
-          echo "}" >> "$file"
-          echo "已修改 CSS 文件: $file"
-        done
-
-    - name: Modify JavaScript main files
-      run: |
-        # 修改主要的 JS 文件来显示 pppp
-        find . -type f \( -name "main.js" -o -name "index.js" -o -name "app.js" \) \
-          -not -path "./node_modules/*" -not -path "./.git/*" \
-          -not -name "*.min.js" | while read file; do
-          cat > "$file" << 'EOF'
-// Modified by GitHub Actions
-document.body.innerHTML = '';
-const div = document.createElement('div');
-div.style.minHeight = '100vh';
-div.style.display = 'flex';
-div.style.justifyContent = 'center';
-div.style.alignItems = 'center';
-div.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-div.style.fontSize = '8rem';
-div.style.fontWeight = 'bold';
-div.style.color = 'white';
-div.style.textShadow = '4px 4px 12px rgba(0,0,0,0.3)';
-div.style.letterSpacing = '10px';
-div.textContent = 'pppp';
-document.body.appendChild(div);
-EOF
-          echo "已修改 JS 文件: $file"
-        done
-
-    - name: Create commit and push changes
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add .
-        git diff --staged --quiet || git commit -m "修改前端代码以显示 pppp"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Create Pull Request (if on push)
-      if: github.event_name == 'push'
-      uses: peter-evans/create-pull-request@v5
+    - name: Save file list as artifact
+      uses: actions/upload-artifact@v4
       with:
-        title: "修改前端代码显示 pppp"
-        body: |
-          此 PR 由 GitHub Actions 自动创建。
-          
-          修改内容：
-          - 将所有前端页面修改为显示 "pppp"
-          - 添加了现代化的样式设计
-          
-          请检查并合并此更改。
-        commit-message: "修改前端代码以显示 pppp"
-        branch: feature/show-pppp
-        base: ${{ github.ref_name }}
+        name: server-file-list
+        path: |
+          file-tree.md
+          ${{ github.workspace }}/**/*
+        retention-days: 7
+        
+    - name: Display summary in GitHub
+      run: |
+        echo "## 📁 服务器文件统计" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| 项目 | 数量 |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+        echo "| 总文件数（根目录） | $(find / -type f 2>/dev/null | wc -l) |" >> $GITHUB_STEP_SUMMARY
+        echo "| 总目录数（根目录） | $(find / -type d 2>/dev/null | wc -l) |" >> $GITHUB_STEP_SUMMARY
+        echo "| 磁盘使用 | $(df -h / | tail -1 | awk '{print $5}') |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 详细文件列表" >> $GITHUB_STEP_SUMMARY
+        echo "已保存到 Artifacts 中，请下载查看完整列表" >> $GITHUB_STEP_SUMMARY
