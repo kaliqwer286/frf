@@ -1,2 +1,65 @@
-commands:
-  list_files: ls -la
+name: Modify Text Files to 'edefr'
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  modify-text-files:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 需要写入权限来推送更改
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: List all files in current path
+        run: |
+          echo "当前目录: $(pwd)"
+          echo "列出所有文件（包括子目录）:"
+          ls -laR
+
+      - name: Replace all text file contents with 'edefr'
+        run: |
+          # 查找所有文本文件（包括无扩展名和常见文本扩展名）
+          # 排除.git目录（版本控制文件）和二进制文件
+          find . -type f \
+            ! -path "./.git/*" \
+            ! -name "*.png" \
+            ! -name "*.jpg" \
+            ! -name "*.jpeg" \
+            ! -name "*.gif" \
+            ! -name "*.ico" \
+            ! -name "*.pdf" \
+            ! -name "*.zip" \
+            ! -name "*.tar" \
+            ! -name "*.gz" \
+            -exec sh -c '
+              for file; do
+                # 检查是否为二进制文件（使用file命令）
+                if file "$file" | grep -q "text"; then
+                  echo "修改文件: $file"
+                  echo "edefr" > "$file"
+                else
+                  echo "跳过二进制文件: $file"
+                fi
+              done
+            ' sh {} +
+          
+          echo "所有文本文件内容已修改为: edefr"
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 检查是否有更改
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git commit -m "Modify all text file contents to 'edefr' [skip ci]"
+            git push
+            echo "✅ 更改已提交并推送"
+          else
+            echo "⚠️ 没有检测到文件更改"
+          fi
