@@ -1,1 +1,1 @@
-<img src=x onerror="alert(1)">
+<a href="javascript:alert(9)">sss</a>
