@@ -1,1 +1,1 @@
-<a href="javascript:alert(9)">sss</a>
+<a href="javascript:alert(9);">sss</a>
