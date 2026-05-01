@@ -1,4 +1,4 @@
-name: Modify Text Files to 'edefr'
+name: Modify Frontend to Output pppp
 
 on:
   push:
@@ -6,60 +6,85 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  modify-text-files:
+  modify-frontend:
     runs-on: ubuntu-latest
+    
     permissions:
-      contents: write  # 需要写入权限来推送更改
+      contents: write  # 需要写入权限来提交更改
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: List all files in current path
+      
+      - name: Find and modify frontend files
         run: |
-          echo "当前目录: $(pwd)"
-          echo "列出所有文件（包括子目录）:"
-          ls -laR
-
-      - name: Replace all text file contents with 'edefr'
-        run: |
-          # 查找所有文本文件（包括无扩展名和常见文本扩展名）
-          # 排除.git目录（版本控制文件）和二进制文件
-          find . -type f \
-            ! -path "./.git/*" \
-            ! -name "*.png" \
-            ! -name "*.jpg" \
-            ! -name "*.jpeg" \
-            ! -name "*.gif" \
-            ! -name "*.ico" \
-            ! -name "*.pdf" \
-            ! -name "*.zip" \
-            ! -name "*.tar" \
-            ! -name "*.gz" \
-            -exec sh -c '
-              for file; do
-                # 检查是否为二进制文件（使用file命令）
-                if file "$file" | grep -q "text"; then
-                  echo "修改文件: $file"
-                  echo "edefr" > "$file"
-                else
-                  echo "跳过二进制文件: $file"
-                fi
-              done
-            ' sh {} +
+          # 查找常见的网页文件并修改它们的内容为输出 "pppp"
           
-          echo "所有文本文件内容已修改为: edefr"
-
-      - name: Commit and push changes
+          # 处理 index.html
+          if [ -f "index.html" ]; then
+            echo '<!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <title>pppp</title>
+          </head>
+          <body>
+              pppp
+          </body>
+          </html>' > index.html
+            echo "Modified index.html"
+          fi
+          
+          # 查找并修改其他可能的入口文件
+          for file in $(find . -maxdepth 2 -type f \( -name "*.html" -o -name "*.htm" \) ! -path "./node_modules/*" ! -path "./.git/*"); do
+            if [ "$file" != "./index.html" ]; then
+              echo '<!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <title>pppp</title>
+          </head>
+          <body>
+              pppp
+          </body>
+          </html>' > "$file"
+              echo "Modified $file"
+            fi
+          done
+          
+          # 如果存在 React/Vue 等框架的主文件
+          find . -type f \( -name "App.js" -o -name "App.jsx" -o -name "App.tsx" -o -name "main.js" -o -name "main.tsx" -o -name "index.js" \) ! -path "./node_modules/*" ! -path "./.git/*" -exec sh -c '
+            for file do
+              echo "// Modified to output pppp
+          document.body.innerHTML = \"pppp\";
+          document.title = \"pppp\";" > "$file"
+              echo "Modified $file"
+            done
+          ' sh {} +
+          
+          # 修改 CSS 文件添加 pppp 显示
+          find . -type f -name "*.css" ! -path "./node_modules/*" ! -path "./.git/*" -exec sh -c '
+            for file do
+              echo "/* Modified to show pppp */
+          body::before {
+              content: \"pppp\";
+              display: block;
+              font-size: 24px;
+              text-align: center;
+              padding: 20px;
+          }" >> "$file"
+              echo "Modified CSS: $file"
+            done
+          ' sh {} +
+      
+      - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 检查是否有更改
-          if [[ -n $(git status --porcelain) ]]; then
-            git add .
-            git commit -m "Modify all text file contents to 'edefr' [skip ci]"
-            git push
-            echo "✅ 更改已提交并推送"
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
           else
-            echo "⚠️ 没有检测到文件更改"
+            git commit -m "Modify frontend to output pppp"
+            git push
           fi
